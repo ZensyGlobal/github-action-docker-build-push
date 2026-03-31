@@ -131,7 +131,7 @@ runs:
       shell: bash
       run: |
         if [ "${{ inputs.image_name }}" = "" ]; then
-          echo 'image_name=${{ inputs.organization }}/${{ inputs.repository }}' >> "$GITHUB_OUTPUT"
+          echo "image_name=$(echo '${{ inputs.organization }}/${{ inputs.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
         else
           echo 'image_name=${{inputs.image_name}}' >> "$GITHUB_OUTPUT"
         fi

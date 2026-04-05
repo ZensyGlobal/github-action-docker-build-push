@@ -1,9 +1,9 @@
-name: "Docker build and push"
-description: "Simple Docker build and push action"
+name: 'Docker build and push'
+description: 'Simple Docker build and push action'
 author: hello@cloudposse.com
 branding:
-  icon: "box"
-  color: "white"
+  icon: 'box'
+  color: 'white'
 inputs:
   allow:
     description: "List of extra privileged entitlement (e.g., network.host,security.insecure)"
@@ -15,60 +15,60 @@ inputs:
     description: "List of additional build contexts (e.g., name=path)"
     required: false
   buildkitd-flags:
-    description: "BuildKit daemon flags"
-    default: "--allow-insecure-entitlement security.insecure --allow-insecure-entitlement network.host"
+    description: 'BuildKit daemon flags'
+    default: '--allow-insecure-entitlement security.insecure --allow-insecure-entitlement network.host'
     required: false
   driver-opts:
-    description: "List of additional driver-specific options. (eg. image=moby/buildkit:master)"
+    description: 'List of additional driver-specific options. (eg. image=moby/buildkit:master)'
     required: false
     default: image=public.ecr.aws/vend/moby/buildkit:buildx-stable-1
   binfmt-image:
-    description: "Binfmt image"
+    description: 'Binfmt image'
     required: false
     default: public.ecr.aws/eks-distro-build-tooling/binfmt-misc:qemu-v7.0.0
   workdir:
-    description: "Working directory"
+    description: 'Working directory'
     required: false
-    default: "./"
+    default: './'
   file:
-    description: "Dockerfile name"
+    description: 'Dockerfile name'
     required: false
-    default: "Dockerfile"
+    default: 'Dockerfile'
   build-args:
     description: "List of build-time variables"
     required: false
   organization:
-    description: "Organization"
+    description: 'Organization'
     required: true
   repository:
-    description: "Repository"
+    description: 'Repository'
     required: true
   registry:
-    description: "Docker registry"
+    description: 'Docker registry'
     required: true
   target:
     description: "Sets the target stage to build"
     required: false
-    default: ""
+    default: ''
   platforms:
     description: "List of target platforms for build (e.g. linux/amd64,linux/arm64,linux/riscv64,linux/ppc64le,linux/s390x,etc)"
     required: false
-    default: "linux/amd64"
+    default: 'linux/amd64'
   provenance:
     description: "Generate provenance attestation for the build"
     required: false
   image_name:
     description: "Image name (excluding registry). Defaults to {{$organization/$repository}}."
     required: false
-    default: ""
+    default: ''
   login:
-    description: "Docker login"
+    description: 'Docker login'
     required: false
-    default: ""
+    default: ''
   password:
-    description: "Docker password"
+    description: 'Docker password'
     required: false
-    default: ""
+    default: ''
   cache-from:
     description: "List of external cache sources for buildx (e.g., user/app:cache, type=local,src=path/to/dir)"
     required: false
@@ -98,13 +98,9 @@ inputs:
     required: false
     default: "false"
   inspect:
-    description: "Set to `true` will pull and inspect the image and output it."
+    description: "Set to `true` will pull and inspect the image and output it to the step summary."
     required: false
     default: "false"
-  summary:
-    description: "Set to `true` will create step summary."
-    required: false
-    default: "true"
   debug:
     description: "Enable debug mode"
     required: false
@@ -118,10 +114,7 @@ outputs:
     value: ${{ steps.tag.outputs.output }}
   metadata:
     description: "Docker image metadata"
-    value: ${{ toJSON(steps.docker-build-push-action.outputs.metadata) }}
-  inspect:
-    description: "Docker image inspect metadata"
-    value: ${{ toJSON(steps.inspect.outputs.metadata) }}
+    value: ${{ steps.get-metadata.outputs.metadata }}
 
 runs:
   using: "composite"
@@ -166,11 +159,11 @@ runs:
         labels: |
           org.opencontainers.image.source=https://github.com/${{ inputs.organization }}/${{ inputs.repository }}
 
-    - name: "Install jq 1.6"
-      uses: dcarbone/install-jq-action@v3.0.1
+    - name: 'Install jq 1.6'
+      uses: dcarbone/install-jq-action@v3.2.0
       with:
         version: 1.6
-        force: "true"
+        force: 'true'
 
     # here we set the first tag in the output as the output of this step
     # this order is determined by the priority, we set the sha as 1001, as that is 1 above the defaults
@@ -202,7 +195,7 @@ runs:
       uses: docker/setup-buildx-action@v3
       with:
         endpoint: buildx-context
-        buildkitd-flags: "${{ inputs.debug == 'true' && '--debug' || '' }} ${{ inputs.buildkitd-flags }}"
+        buildkitd-flags: "${{ inputs.debug == 'true' && '--debug' || '' }} ${{ inputs.buildkitd-flags }}" 
         driver-opts: "${{ inputs.driver-opts }}"
 
     - name: Login
@@ -213,13 +206,12 @@ runs:
         username: ${{ inputs.login }}
         password: ${{ inputs.password }}
 
+
     - name: Build and push Docker images
       # Do not update to >=v6 untill the issue would be solved
       # https://github.com/docker/build-push-action/issues/1167
       uses: docker/build-push-action@v5
       id: docker-build-push-action
-      env:
-        DOCKER_BUILD_SUMMARY: ${{ inputs.inspect  == 'true' && inputs.summary  == 'true' }}
       with:
         allow: ${{ inputs.allow }}
         network: ${{ inputs.network }}
@@ -241,113 +233,27 @@ runs:
         secrets: ${{ inputs.secrets }}
         secret-files: ${{ inputs.secret-files }}
 
-    - name: Docker Inspect
-      id: inspect
-      if: ${{ inputs.summary == 'true' }}
+    - name: Get Metadata
+      id: get-metadata
       shell: bash
       run: |
-        docker pull --platform "${{ inputs.platforms }}" "${{ inputs.registry }}/${{ steps.image_name.outputs.image_name }}:${{ steps.tag.outputs.output }}"
+        metadata=$(echo '${{ steps.docker-build-push-action.outputs.metadata }}' | jq -c)
+        echo "metadata=$metadata" >> $GITHUB_OUTPUT
+        echo "## Docker Image Metadata" >> $GITHUB_STEP_SUMMARY
+        echo '```json' >> $GITHUB_STEP_SUMMARY
+        echo "$metadata" | jq >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+
+    - name: Docker Inspect
+      id: inspect
+      if:  ${{ inputs.inspect }} == 'true'
+      shell: bash
+      run: |
+        docker pull "${{ inputs.registry }}/${{ steps.image_name.outputs.image_name }}:${{ steps.tag.outputs.output }}"
         docker inspect "${{ inputs.registry }}/${{ steps.image_name.outputs.image_name }}:${{ steps.tag.outputs.output }}" > inspect.json
         metadata=$(jq -c < inspect.json)
         echo "metadata=$metadata" >> $GITHUB_OUTPUT
-    
-        # ── parse fields ────────────────────────────────────────────────────────
-        IMAGE_NAME=$(jq -r '.[0].RepoTags[0] | split(":")[0] | split("/")[-1]' inspect.json)
-        IMAGE_REPO=$(jq -r '.[0].RepoTags[0] | split(":")[0]'                  inspect.json)
-        TAG=$(jq -r        '.[0].RepoTags[0] | split(":")[1]'                  inspect.json)
-        DIGEST=$(jq -r     '.[0].RepoDigests[0] | split("@")[1]'               inspect.json)
-        IMAGE_ID=$(jq -r   '.[0].Id'                                            inspect.json)
-        REVISION=$(jq -r   '.[0].Config.Labels["org.opencontainers.image.revision"] // "n/a"' inspect.json)
-        SOURCE=$(jq -r     '.[0].Config.Labels["org.opencontainers.image.source"] // "n/a"'   inspect.json)
-        LICENSE=$(jq -r    '.[0].Config.Labels["org.opencontainers.image.licenses"] // "n/a"' inspect.json)
-        DESCRIPTION=$(jq -r '.[0].Config.Labels["org.opencontainers.image.description"] // ""' inspect.json)
-        ARCH=$(jq -r       '.[0].Architecture'                                  inspect.json)
-        OS=$(jq -r         '.[0].Os'                                            inspect.json)
-        SIZE_BYTES=$(jq -r '.[0].Size'                                          inspect.json)
-        SIZE_MB=$(echo "scale=1; $SIZE_BYTES / 1048576" | bc)
-        LAYER_COUNT=$(jq   '.[0].RootFS.Layers | length'                        inspect.json)
-        PORTS=$(jq -r      '.[0].Config.ExposedPorts // {} | keys | join(", ")' inspect.json)
-        ENTRYPOINT=$(jq -r '.[0].Config.Entrypoint | join(" ")'                 inspect.json)
-        CMD=$(jq -r        '.[0].Config.Cmd | join(" ")'                        inspect.json)
-        STOP_SIGNAL=$(jq -r '.[0].Config.StopSignal // "n/a"'                   inspect.json)
-        DRIVER=$(jq -r     '.[0].GraphDriver.Name'                              inspect.json)
-    
-        # ── summary ─────────────────────────────────────────────────────────────
-        {
-          echo "## 🐳 ${IMAGE_REPO}  &nbsp; \`${SIZE_MB} MB\` &nbsp; \`${LICENSE}\` &nbsp; \`${ARCH}\` &nbsp; \`${OS}\`"
-          echo ""
-          if [[ -n "${DESCRIPTION}" ]]; then
-            echo "${DESCRIPTION}"
-            echo ""
-          fi
-          echo "---"
-          echo ""
-    
-          echo "| Field | Value |"
-          echo "|---|---|"
-          echo "| Tag | \`${TAG}\` |"
-          echo "| Digest | \`${DIGEST}\` |"
-          echo "| Image ID | \`${IMAGE_ID}\` |"
-          echo "| Revision | \`${REVISION}\` |"
-          echo "| Source | ${SOURCE} |"
-          echo ""
-    
-          # runtime (collapsible)
-          echo "<details>"
-          echo "<summary>⚙️ Runtime</summary>"
-          echo ""
-          echo "| Field | Value |"
-          echo "|---|---|"
-          echo "| Entrypoint | \`${ENTRYPOINT}\` |"
-          echo "| Command | \`${CMD}\` |"
-          echo "| Stop signal | \`${STOP_SIGNAL}\` |"
-          echo "| Storage driver | \`${DRIVER}\` |"
-          echo "| Exposed ports | \`${PORTS}\` |"
-          echo ""
-          echo "</details>"
-          echo ""
-    
-          # env vars (collapsible)
-          echo "<details>"
-          echo "<summary>🌱 Environment variables</summary>"
-          echo ""
-          echo "| Variable | Value |"
-          echo "|---|---|"
-          jq -r '.[0].Config.Env[] | split("=") | "| `\(.[0])` | `\(.[1:] | join("="))` |"' inspect.json
-          echo ""
-          echo "</details>"
-          echo ""
-    
-          # labels (collapsible)
-          echo "<details>"
-          echo "<summary>🔖 Labels</summary>"
-          echo ""
-          echo "| Label | Value |"
-          echo "|---|---|"
-          jq -r '.[0].Config.Labels // {} | to_entries[] | "| `\(.key)` | `\(.value)` |"' inspect.json
-          echo ""
-          echo "</details>"
-          echo ""
-    
-          # layers (collapsible)
-          echo "<details>"
-          echo "<summary>📦 Layers (${LAYER_COUNT})</summary>"
-          echo ""
-          echo "| # | Digest |"
-          echo "|---|---|"
-          jq -r '.[0].RootFS.Layers | to_entries[] | "| \(.key + 1) | `\(.value)` |"' inspect.json
-          echo ""
-          echo "</details>"
-          echo ""
-    
-          # raw json (collapsible)
-          echo "<details>"
-          echo "<summary>📄 Raw JSON</summary>"
-          echo ""
-          echo '```json'
-          jq '.' inspect.json
-          echo '```'
-          echo ""
-          echo "</details>"
-    
-        } >> $GITHUB_STEP_SUMMARY
+        echo "## Docker Image Inspect" >> $GITHUB_STEP_SUMMARY
+        echo '```json' >> $GITHUB_STEP_SUMMARY
+        cat inspect.json >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY

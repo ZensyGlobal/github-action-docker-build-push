@@ -159,11 +159,13 @@ runs:
         labels: |
           org.opencontainers.image.source=https://github.com/${{ inputs.organization }}/${{ inputs.repository }}
 
-    - name: 'Install jq 1.6'
-      uses: dcarbone/install-jq-action@v3.2.0
-      with:
-        version: 1.6
-        force: 'true'
+    - name: 'Ensure jq is available'
+      shell: bash
+      run: |
+        if ! command -v jq &> /dev/null; then
+          sudo apt-get update -qq && sudo apt-get install -y -qq jq
+        fi
+        jq --version
 
     # here we set the first tag in the output as the output of this step
     # this order is determined by the priority, we set the sha as 1001, as that is 1 above the defaults
